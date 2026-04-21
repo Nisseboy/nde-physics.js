@@ -1,19 +1,7 @@
 import sys
 
 files = [
-  "src/Collider/ColliderBase.js",
-  "src/Collider/ColliderCircle.js",
-  "src/Collider/ColliderRect.js",
-  "src/Collider/Collision.js",
-
-  "src/Constraint/ConstraintBase.js",
-  "src/Constraint/ConstraintWeld.js",
-
-  "src/PhysicsObject.js",
-
-  "src/PhysicsGrid.js",
-
-  "src/index.js",
+  
 ] 
 outputFile = "release/nde-physics" + sys.argv[1] + ".js"
 fileHeader = '''

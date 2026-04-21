@@ -1,11 +1,9 @@
-class ColliderRect extends Collider {
+class ColliderGrid extends Collider {
   constructor(props = {}) {
     super();
 
     this._size = undefined;
     this.size = props.size ?? vecOne.copy();
-
-    this._cornercache = new Float32Array(8);
   }
 
   set size(value) {
@@ -15,16 +13,6 @@ class ColliderRect extends Collider {
   get size() {
     return this._size;
   }
-
-  render() {
-    nde.renderer._(() => {
-      nde.renderer.translate(this.transform.pos);
-      if (this.transform.dir) nde.renderer.rotate(this.transform.dir);
-
-      nde.renderer.rect(this.size._mul(-0.5), this.size);
-    });
-  }
-
 
   from(data) {
     super.from(data);

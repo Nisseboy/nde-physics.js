@@ -1,14 +1,12 @@
-class ColliderBase extends Serializable {
+class Collider extends Component {
   constructor() {
     super();
 
     this.r = undefined;
+
+    this.physicsLayer = undefined;
+    this.i = undefined;
   }
-
-  calculateProps() {}
-
-  estimateParentMass(parent) {}
-  estimateParentMOI(parent) {}
 
   from(data) {
     super.from(data);

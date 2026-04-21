@@ -1,61 +1,71 @@
+
 let backgroundCol = "rgb(19, 19, 19)";
 let buttonCol = "rgb(25, 25, 25)";
 let buttonHoveredCol = "rgb(40, 40, 40)";
 
+let uicam;
+let buttonStyle;
+let rangeStyle;
+let rootStyle;
 
-let buttonStyle = {
-  minSize: new Vec(30, 30),
-  padding: 5,
+function initStyles() {
+  let w = 1600;
+  uicam = new Camera(new Vec(w*0.5, w*nde.ar*0.5));
+  uicam.w = w;
 
-
-  fill: buttonCol,
-  text: {font: "25px monospace"},
-  
-  
-  scroll: {
-    fill: "rgb(60, 60, 60)",
-  },
-
-  slider: {
+  buttonStyle = {
+    minSize: new Vec(30, 30),
     padding: 5,
-    minSize: new Vec(300, 30),
+
 
     fill: buttonCol,
-  },
-
-  number: {
-    fill: buttonCol,
-  },
-
-  hover: {
-    fill: buttonHoveredCol,
-
+    text: {font: "25px monospace"},
     
-    slider: {
-      fill: buttonHoveredCol,
-      active: {
-        fill: "rgb(255, 0, 0)",
-        stroke: "rgb(255, 0, 0)",
-      }
+    
+    scroll: {
+      fill: "rgb(60, 60, 60)",
     },
+
+    slider: {
+      padding: 5,
+      minSize: new Vec(300, 30),
+
+      fill: buttonCol,
+    },
+
     number: {
+      fill: buttonCol,
+    },
+
+    hover: {
       fill: buttonHoveredCol,
+
+      
+      slider: {
+        fill: buttonHoveredCol,
+        active: {
+          fill: "rgb(255, 0, 0)",
+          stroke: "rgb(255, 0, 0)",
+        }
+      },
+      number: {
+        fill: buttonHoveredCol,
+      }
     }
-  }
-};
+  };
 
-let rangeStyle = {...buttonStyle,
-  padding: 0,
-};
+  rangeStyle = {...buttonStyle,
+    padding: 0,
+  };
 
 
-let rootStyle = {
-  size: new Vec(1600, 900),
-  scroll: {...buttonStyle.scroll,
-    width: buttonStyle.padding,
-  },
-};
-
+  rootStyle = {
+    size: new Vec(w, w*uicam.ar),
+    scroll: {...buttonStyle.scroll,
+      width: buttonStyle.padding,
+    },
+  };
+}
 
 function createDefaultUIRoot(children) {
   return new UIRoot({

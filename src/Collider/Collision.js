@@ -32,22 +32,22 @@ const EPS = 1e-9;
 
 
 // === OBB extractor: returns typed arrays for axes [ax,ay,bx,by] and corners Float32Array[8] (x0,y0,x1,y1,...) ===
-function getOBBFast(entity) {
+function getOBBFast(collider) {
   // assume entity.pos = {x,y}, entity.dir is angle in radians, entity.collider.size = {x,y}
-  const cx = entity.pos.x, cy = entity.pos.y;
-  const hw = entity.collider.size.x * 0.5;
-  const hh = entity.collider.size.y * 0.5;
-  const c = Math.cos(entity.dir), s = Math.sin(entity.dir);
+  const cx = collider.transform.pos.x, cy = collider.transform.pos.y;
+  const hw = collider.size.x * 0.5;
+  const hh = collider.size.y * 0.5;
+  const c = Math.cos(collider.transform.dir), s = Math.sin(collider.transform.dir);
 
   // axes: local x, local y
   const axes = [ c, s, -s, c ];
 
-  entity._cornercache[0] = cx + c*hw - s*hh; entity._cornercache[1] = cy + s*hw + c*hh;
-  entity._cornercache[2] = cx - c*hw - s*hh; entity._cornercache[3] = cy - s*hw + c*hh;
-  entity._cornercache[4] = cx - c*hw + s*hh; entity._cornercache[5] = cy - s*hw - c*hh;
-  entity._cornercache[6] = cx + c*hw + s*hh; entity._cornercache[7] = cy + s*hw - c*hh;
+  collider._cornercache[0] = cx + c*hw - s*hh; collider._cornercache[1] = cy + s*hw + c*hh;
+  collider._cornercache[2] = cx - c*hw - s*hh; collider._cornercache[3] = cy - s*hw + c*hh;
+  collider._cornercache[4] = cx - c*hw + s*hh; collider._cornercache[5] = cy - s*hw - c*hh;
+  collider._cornercache[6] = cx + c*hw + s*hh; collider._cornercache[7] = cy + s*hw - c*hh;
 
-  return { axes, corners: entity._cornercache };
+  return { axes, corners: collider._cornercache };
 }
 
 // Project typed-corners onto axis (ax,ay). corners is Float32Array length 8.
@@ -128,19 +128,18 @@ function clipSegmentToPlaneSimple(p0x,p0y, p1x,p1y, nx,ny, offset, keepGreater) 
 function createCollision(a, b) {
   // early broad-phase cheap circle-sphere approx using bounding radii if provided
   // assuming entities may have collider.r for circle or collider.size for rect
-  const dx = a.pos.x - b.pos.x;
-  const dy = a.pos.y - b.pos.y;
+  const dx = a.transform.pos.x - b.transform.pos.x;
+  const dy = a.transform.pos.y - b.transform.pos.y;
   const sqd = dx*dx + dy*dy;
-  const ar = a.collider.r || ( (a.collider.size && Math.hypot(a.collider.size.x, a.collider.size.y)/2) || 0 );
-  const br = b.collider.r || ( (b.collider.size && Math.hypot(b.collider.size.x, b.collider.size.y)/2) || 0 );
+  const ar = a.r;
+  const br = b.r;
   const rsum = ar + br;
   if (sqd > rsum*rsum) return null; // cheap reject
-  if (a.mass === 0 && b.mass === 0) return null;
 
   const c = CollisionPool.alloc(a,b);
 
-  const aRect = !!a.collider.size;
-  const bRect = !!b.collider.size;
+  const aRect = a instanceof ColliderRect;
+  const bRect = b instanceof ColliderRect;
 
   // --- rect-rect (OBB vs OBB) ---
   if (aRect && bRect) {
@@ -173,7 +172,7 @@ function createCollision(a, b) {
     }
 
     // Build normal consistent from A->B
-    let dirx = b.pos.x - a.pos.x, diry = b.pos.y - a.pos.y;
+    let dirx = b.transform.pos.x - a.transform.pos.x, diry = b.transform.pos.y - a.transform.pos.y;
     let dotDir = dirx*smallestAxisX + diry*smallestAxisY;
     let normalX = dotDir < 0 ? -smallestAxisX : smallestAxisX;
     let normalY = dotDir < 0 ? -smallestAxisY : smallestAxisY;
@@ -295,17 +294,17 @@ function createCollision(a, b) {
   // --- circle-circle (simple, optimized) ---
   if (!aRect && !bRect) {
     // assume pos objects with x,y and helpers omitted; using raw arithmetic
-    const dx2 = b.pos.x - a.pos.x;
-    const dy2 = b.pos.y - a.pos.y;
+    const dx2 = b.transform.pos.x - a.transform.pos.x;
+    const dy2 = b.transform.pos.y - a.transform.pos.y;
     const mag2 = Math.sqrt(dx2*dx2 + dy2*dy2) || EPS;
-    const rsum2 = a.collider.r + b.collider.r;
+    const rsum2 = a.r + b.r;
     const penetration = rsum2 - mag2;
     if (penetration <= 0) { CollisionPool.free(c); return null; }
     c.penetration = penetration;
     c.nx = dx2 / mag2; c.ny = dy2 / mag2;
     // contact point: move from a towards b by a.r along the normal
-    c.x = a.pos.x + c.nx * (a.collider.r - penetration*0.5);
-    c.y = a.pos.y + c.ny * (a.collider.r - penetration*0.5);
+    c.x = a.transform.pos.x + c.nx * (a.r - penetration*0.5);
+    c.y = a.transform.pos.y + c.ny * (a.r - penetration*0.5);
     return c;
   }
 
