@@ -3,7 +3,11 @@
 
 */
 
+
+
 class PhysicsManager extends Component {
+  static collisionPairs = new Map();
+  
   constructor(props = {}) {
     super();
     
@@ -11,35 +15,11 @@ class PhysicsManager extends Component {
 
     this.obs = []
     this.rbs = [];
-    this.layers = props.layers ?? [
-      new PhysicsLayer({size: 2, filterF: (collider) => {
-        return collider.r < 2;
-      }}),
-      new PhysicsLayer({size: 4, filterF: (collider) => {
-        return collider.r < 4;
-      }}),
-      new PhysicsLayer({size: 100, filterF: (collider) => {
-        return collider.r < 100;
-      }}),
-    ];
-
-    /*
-      0- no interaction
-      1- y checks with x
-
-          0 1 2 3 4
-          ---------
-      0 | 1 O O O O
-      1 | 1 1 O O O
-      2 | 0 0 0 O O
-      3 | 0 0 0 0 O
-      4 | 0 0 0 0 0
-    */
-    this.layerInteractions = props.layerInteractions ?? [
-      1,0,0,
-      1,1,0,
-      1,1,1,
-    ];
+    
+    this.layers = [];
+    for (let i of props.layers ?? []) {
+      this.addLayer(i);
+    }
 
     this.staticFrictionThreshold = 0.01; // m/s
     this.staticFrictionRatio = 1.2; // frictionStatic/frictionDynamic
@@ -50,7 +30,15 @@ class PhysicsManager extends Component {
     this.constraints = [];
 
 
+    this._collisionSet = new Set();
+    this._potentialCollisions = new Array();
+    this._collisions = new Array();
+
     this.collisionMap = new Map();
+
+
+    this._showCollisionPoints = false;
+    this.collisionPoints = new Array();
   }
 
   
@@ -60,7 +48,6 @@ class PhysicsManager extends Component {
     let layer = this.calculateLayer(c);
     if (layer == undefined) return;
 
-    c.physicsLayer = layer;
     this.layers[layer].addCollider(c);
 
     let index = this.obs.indexOf(undefined);
@@ -77,9 +64,10 @@ class PhysicsManager extends Component {
     this.rbs[index] = undefined;
 
     let c = ob.getComponent(Collider);
-    if (c.physicsLayer != undefined) {
-      this.layers[c.physicsLayer].removeCollider(c);
-      c.physicsLayer = undefined;
+    
+    let layer = this.layers.find(l=>l.colliders.indexOf(c) != -1);
+    if (layer != undefined) {
+      layer.removeCollider(c);
     }
   }
   addObs(ob, removeOthers = false) {
@@ -94,14 +82,32 @@ class PhysicsManager extends Component {
     }
   }
 
+  addLayer(layer) {
+    this.layers.push(layer);
+    this.layers.sort((a, b) => a.size - b.size);
+  }
   calculateLayer(collider) {
+    let size = 10 ** Math.ceil(Math.log10(collider.r));
+    
     for (let i = 0; i < this.layers.length; i++) {
-      if (this.layers[i].filterF(collider)) return i;
+      if (this.layers[i].size == size) return i;
     }
+
+    this.addLayer(new PhysicsLayer(size));
+
+    return this.calculateLayer(collider);
+  }
+
+  static addCollisionPair(typeA, typeB, f) {
+    let mapA = this.collisionPairs.get(typeA);
+    if (!mapA) this.collisionPairs.set(typeA, new Map());
+    mapA = this.collisionPairs.get(typeA);
+    mapA.set(typeB, f);
   }
 
   clear() {
     this.addObs(new Ob());
+    this.layers.length = 0;
   }
 
   addConstraint(constraint) {
@@ -135,16 +141,29 @@ class PhysicsManager extends Component {
           let con = this.constraints[j];
           if ((con.a == coll.a && con.b == coll.b) || (con.a == coll.b && con.b == coll.a)) continue outer;
         }
-
-        //collisionPoints.push(new Vec(coll.x, coll.y));
-
+        
         this.resolveCollision(coll);
       } 
     }
 
+    this._showCollisionPoints = false;
+
     this.fireCollisionEvents(collisions);
 
     this.resetForces();
+  }
+
+  renderCollisionPoints() {
+    renderer._(() => {
+      renderer.set("fill", "rgb(255, 255, 255)")
+        
+      for (let p of this.collisionPoints) {
+        renderer.circle(new Vec(p.x, p.y), 0.1);
+      }
+
+      this._showCollisionPoints = true;
+      this.collisionPoints.length = 0;
+    });
   }
 
   getCollisions() {
@@ -157,24 +176,20 @@ class PhysicsManager extends Component {
     }
 
     
-    let potentialCollisions = [];
+    this._potentialCollisions.length = 0;
     for (let i = 0; i < num; i++) {
-      for (let j = 0; j < num; j++) {
-        let interaction = this.layerInteractions[j + i * num];
-        
-        if (interaction == 0) continue;
-        
-        this.layers[j].getPotentialCollisions(this.layers[i], potentialCollisions);
+      for (let j = i; j < num; j++) {
+        this.layers[i].getPotentialCollisions(this.layers[j], this._potentialCollisions);
       }
     }
     
-    let collisions = [];
-    for (let i = 0; i < potentialCollisions.length; i += 2) {
-      let collision = createCollision(potentialCollisions[i], potentialCollisions[i+1]);
-      if (collision) collisions.push(collision);
+    this._collisions.length = 0;
+    for (let i = 0; i < this._potentialCollisions.length; i += 2) {
+      let collision = createCollision(this._potentialCollisions[i], this._potentialCollisions[i+1]);
+      if (collision) this._collisions.push(collision);
     }
 
-    return collisions;
+    return this._collisions;
   }
 
   resolveCollision(coll) {
@@ -187,7 +202,7 @@ class PhysicsManager extends Component {
 
     if (!aRB || !bRB || (aRB.static && bRB.static)) return;
 
-    //collisionPoints.push(coll);
+    if (this._showCollisionPoints) this.collisionPoints.push(coll);
 
     // --- Relative positions from COM to contact point ---
     let rAx = coll.x - a.transform.pos.x;
@@ -206,6 +221,7 @@ class PhysicsManager extends Component {
     let rvy = vBy - vAy;
     let velAlongNormal = rvx * coll.nx + rvy * coll.ny;
     if (velAlongNormal > 0) return; // separating
+    
 
     
 
@@ -277,7 +293,7 @@ class PhysicsManager extends Component {
   }
 
   fireCollisionEvents(collisions) {
-    let currentCollisions = new Set();
+    this._collisionSet.clear();
 
     let coll, a, b, key;
     for (let i = 0; i < collisions.length; i++) {
@@ -288,7 +304,7 @@ class PhysicsManager extends Component {
 
       key = (0.5 * (a + b) * (a + b + 1) + b);
 
-      currentCollisions.add(key);
+      this._collisionSet.add(key);
 
       if (!this.collisionMap.has(key)) {
         this.collisionMap.set(key, [coll.a, coll.b]);
@@ -299,7 +315,7 @@ class PhysicsManager extends Component {
     }
 
     for (let [key, pair] of this.collisionMap) {
-      if (!currentCollisions.has(key)) {
+      if (!this._collisionSet.has(key)) {
         this.collisionMap.delete(key);
 
         pair[0].fire("collisionExit", pair[1]);

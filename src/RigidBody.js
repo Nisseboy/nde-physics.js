@@ -12,8 +12,8 @@ class RigidBody extends Component {
     this.friction = props.friction ?? Math.sqrt(0.5) //Friction coefficient of this to itself is 0.5
     this.restitution = props.restitution ?? Math.sqrt(0.2) //Restitution coefficient of this to itself is 0.5
 
-    this.mass = props.mass ?? 1;
-    this.moi = props.moi ?? 1;
+    this.mass = props.mass ?? 10;
+    this.moi = props.moi ?? 16;
     this.static = props.static ?? false;
 
     this.lastAcc = new Vec(0, 0);

@@ -2,8 +2,6 @@
 let world;
 let physics;
 
-let collisionPoints = [];
-
 class SceneGame extends Scene {
   constructor() {
     super();
@@ -16,6 +14,7 @@ class SceneGame extends Scene {
 
     world = this.world;
     physics = new PhysicsManager();
+
     physics.iterations = 5;
     world.addComponent(physics);
   
@@ -23,28 +22,27 @@ class SceneGame extends Scene {
     /*
     this.world.appendChild(
       new Ob({pos: new Vec(0, 0),}, [
-        new RigidBody({vel: new Vec(0, 0)}),
+        new RigidBody({vel: new Vec(1, 0)}),
         new ColliderRect({size: new Vec(0.2, 0.2)}),
       ]),
       new Ob({pos: new Vec(2, 0)}, [
         new RigidBody({static: false}),
         new ColliderRect({size: new Vec(0.2, 0.2)}),
       ]),
-    );
-    */
+    );*/
+    
 
-/*
+    
     this.world.appendChild(
       new Ob({pos: new Vec(0, 0)}, [
         new RigidBody({vel: new Vec(1, 0)}),
         new ColliderCircle({r: 0.5}),
       ]),
       new Ob({pos: new Vec(2, 0)}, [
-        new RigidBody({}),
-        new ColliderCircle({r: 0.5}),
+        new RigidBody({vel: new Vec(-1, 0)}),
+        new ColliderRect({size: new Vec(1, 1)}),
       ]),
     );
-*/
 
 
     this.world.appendChild(
@@ -56,7 +54,7 @@ class SceneGame extends Scene {
 
     physics.addObs(this.world);
     
-    for (let i = 0; i < 200; i++) {
+    for (let i = 0; i < 100; i++) {
       this.add();
     }
 
@@ -71,6 +69,13 @@ class SceneGame extends Scene {
     ]);
     this.world.appendChild(ob);
     physics.addOb(ob);
+
+    let ob2 = new Ob({pos: new Vec(Math.random() * 16 - 8, Math.random() * 9 - 4.5), dir: Math.random() * Math.PI * 2}, [
+      new RigidBody({mass: 0.2^2, moi: 0.01}),
+      new ColliderCircle({r: 0.1}),
+    ]);
+    this.world.appendChild(ob2);
+    physics.addOb(ob2);
   }
 
   start() {
@@ -78,7 +83,7 @@ class SceneGame extends Scene {
   }
 
   update(dt) {  
-    {
+    if (true) {
       let controlled = this.world.children[1];
       let rb = controlled.getComponent(RigidBody);
       let mouseWorld = this.cam.untransformVec(nde.mouse);
@@ -111,13 +116,7 @@ class SceneGame extends Scene {
 
     cam._(renderer, () => {
       this.world.render();
-
-      renderer.set("fill", "rgb(255, 255, 255)")
-      for (let p of collisionPoints) {
-        renderer.circle(p, 0.1);
-      }
-
-      collisionPoints.length = 0;
+      //physics.renderCollisionPoints();
     });
   }
 }

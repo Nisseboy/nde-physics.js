@@ -4,7 +4,6 @@ class Collider extends Component {
 
     this.r = undefined;
 
-    this.physicsLayer = undefined;
     this.i = undefined;
   }
 

@@ -1,10 +1,11 @@
 class PhysicsLayer {
-  constructor(props) {
-    this.filterF = props.filterF;
-    this.size = props.size ?? 1;
+  constructor(size) {
+    this.size = size;
 
     this.colliders = [];
     this.map = {};
+    
+    this._collisionSet = new Set();
   }
 
   addCollider(collider) {
@@ -75,7 +76,7 @@ class PhysicsLayer {
     let size = layer.size;
 
     if (layer == this) {
-      let visited = {};
+      this._collisionSet.clear();
       let i,j,c1,x,y,coll,cell,cell2,cell3,cell4,cell5,hash;
 
       for (let I = 0; I < this.colliders.length; I++) {
@@ -84,8 +85,8 @@ class PhysicsLayer {
 
         hash = coll.i;
 
-        if (visited[hash]) continue;
-        visited[hash] = true;
+        if (this._collisionSet.has(hash)) continue;
+        this._collisionSet.add(hash);
 
         cell = this.map[hash];
         x = coll.transform.pos.x;
@@ -94,8 +95,6 @@ class PhysicsLayer {
         cell3 = this.map[this.getIndexFast(x, y + size)];
         cell4 = this.map[this.getIndexFast(x + size, y + size)];
         cell5 = this.map[this.getIndexFast(x - size, y + size)];
-        
-        if (size != 100 && nde.getKeyPressed("Debug Mode")) debugger
 
         for (i = 0; i < cell.length; i++) {
           c1 = this.colliders[cell[i]];
