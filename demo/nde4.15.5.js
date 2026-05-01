@@ -294,6 +294,19 @@ class Vec extends Serializable {
     if (this.w) this.w = Math.round(this.w);
     return this;
   }
+  
+  /**
+   * Takes the absolute value of each axis
+   * 
+   * @return {Vec} this
+   */
+  abs() {
+    if (this.x) this.x = Math.abs(this.x);
+    if (this.y) this.y = Math.abs(this.y);
+    if (this.z) this.z = Math.abs(this.z);
+    if (this.w) this.w = Math.abs(this.w);
+    return this;
+  }
 
   /**
    * Adds each axis of this vector by val
@@ -443,6 +456,7 @@ class Vec extends Serializable {
   _floor() {return this.copy().floor()}
   _ceil() {return this.copy().ceil()}
   _round() {return this.copy().round()}
+  _abs() {return this.copy().abs()}
 
   _normalize() {return this.copy().normalize()}
 
@@ -743,6 +757,16 @@ class Scene {
  * @param {WheelEvent} e
  */
   wheel(e) {}
+
+/**
+ * @param {UIBase} uiElement
+ */
+  mouseenter(uiElement) {}
+/**
+ * @param {UIBase} uiElement
+ */
+  mouseleave(uiElement) {}
+  
  
 /**
  * Update scene here, called every frame
@@ -825,7 +849,7 @@ class EventHandler {
     }
     
     for (let i = 0; i < this.listeners.length; i++) {
-      this.listeners[i].fire(eventName, ...args);
+      if (this.listeners[i].fire(eventName, ...args) == false) return false;
     }
       
     return true;
@@ -1145,8 +1169,10 @@ class Img extends Renderable {
         this.ctx.lineWidth = value;
         break;
       case "textAlign":
-        this.ctx.textAlign = value[0];
-        this.ctx.textBaseline = value[1];
+        if (typeof value[0] == "string") this.ctx.textAlign = value[0];
+        else this.ctx.textAlign = ["left", "center", "right"][value[0]];
+        if (typeof value[1] == "string") this.ctx.textBaseline = value[1];
+        else this.ctx.textBaseline = ["top", "middle", "bottom"][value[1]];
         break;
       case "font":
         this.ctx.font = value;
@@ -1217,7 +1243,7 @@ class Img extends Renderable {
   }
   image(img, pos, size) {
     if (!img) {
-      console.error("No image supplied to renderer.image()");
+      return
     }
 
     this.ctx.drawImage(img.getImg().canvas, pos.x, pos.y, size.x, size.y);
@@ -1797,6 +1823,7 @@ class UIBase {
     if (props.events) this.e.events = props.events;
 
     this.interactable = false;
+    this.bubbles = true;
     
     this.hovered = false;
     this.trueHovered = false;
@@ -1814,7 +1841,11 @@ class UIBase {
 
   on(...args) {return this.e.on(...args)}
   off(...args) {return this.e.off(...args)}
-  fire(...args) {return this.e.fire(...args)}
+  fire(...args) {
+    let res = this.e.fire(...args);
+    if (res != false && this.bubbles) this.parent?.fire(...args);
+    return res;
+  }
 
 
   fillStyle(style) {
@@ -2499,6 +2530,7 @@ class UISettingBase extends UIBase {
   constructor(props) {
     super(props);
     this.interactable = true;
+    this.bubbles = false;
 
     this.value = props.value;
     this.focused = false;
@@ -2804,8 +2836,10 @@ class UISettingDropdown extends UISettingBase {
     this.updateColors();
   }
 
-  switchOpen() {
-    if (this.children[0].style.render == "hidden") {
+  switchOpen(state) {
+    state = state ?? this.children[0].style.render == "normal";
+
+    if (!state) {
       this.children[0].style.render = "normal";
       this.children[1].style.render = "hidden";
     } else {
@@ -3993,12 +4027,12 @@ class Component extends Serializable {
   fire(...args) {return this.ob.fire(...args)}
 
   getComponent(...args) {return this.ob.getComponent(...args); }
-  getComponents(...args) {return this.ob.getComponent(...args); }
-  find(...args) {return this.ob.getComponent(...args); }
-  findAll(...args) {return this.ob.getComponent(...args); }
-  findId(...args) {return this.ob.getComponent(...args); }
+  getComponents(...args) {return this.ob.getComponents(...args); }
+  find(...args) {return this.ob.find(...args); }
+  findAll(...args) {return this.ob.findAll(...args); }
+  findId(...args) {return this.ob.findId(...args); }
   addComponent(...args) {return this.ob.addComponent(...args); }
-  removeComponent(...args) {return this.ob.addComponent(...args); }
+  removeComponent(...args) {return this.ob.removeComponent(...args); }
 
   from(data) {
     super.from(data);
@@ -4300,7 +4334,8 @@ class Ob extends Serializable {
 
 
     this.parent = undefined;
-    this.appendChild(...children);
+    for (let c of children)
+      this.appendChildSilently(c);
 
 
     this.e = new EventHandler();
@@ -4379,6 +4414,15 @@ class Ob extends Serializable {
   off(...args) {return this.e.off(...args)}
   fire(...args) {return this.e.fire(...args)}
 
+  fireBubbling(eventName, ...args) {
+    let ob = this;
+
+    while (ob) {
+      ob.fire(eventName, ...args);
+      ob = ob.parent;
+    }
+  }
+
 
   addComponent(...components) {
     for (let i = 0; i < components.length; i++) {
@@ -4388,16 +4432,22 @@ class Ob extends Serializable {
         component.ob.removeComponent(component);
       }
 
-      this.components.push(component);
       component.ob = this;
       component.transform = this.transform;
+
+      this.components.push(component);
+      this.fireBubbling("componentAdded", component);
     }
   }
-  removeComponent(component) {
+  removeComponent(component, fireEvent = true) {
     let index = this.components.indexOf(component);
     if (index == -1) return false;
 
+    if (component.lastActive) component.disable();
+
+    if (fireEvent) this.fireBubbling("componentRemoved", component);
     this.components.splice(index, 1);
+
     component.ob = undefined;
     component.transform = undefined;
     return true;
@@ -4461,23 +4511,29 @@ class Ob extends Serializable {
     return table;
   }
 
+  appendChildSilently(ob) {
+    if (ob.parent) {
+      ob.parent.removeChild(ob);
+    }
+
+    this.children.push(ob);
+    ob.parent = this;
+  }
   appendChild(...obs) {
     for (let i = 0; i < obs.length; i++) {
       let ob = obs[i];
-      
-      if (ob.parent) {
-        ob.parent.removeChild(ob);
-      }
 
-      this.children.push(ob);
-      ob.parent = this;
+      this.appendChildSilently(ob);
+      this.fireBubbling("obAdded", ob);
     }
   }
   removeChild(ob) {
     let index = this.children.indexOf(ob);
     if (index == -1) return false;
 
+    this.fireBubbling("obRemoved", ob);
     this.children.splice(index, 1);
+
     ob.parent = undefined;
     return true;
   }
@@ -4489,9 +4545,12 @@ class Ob extends Serializable {
       let ob = obs[i];
       if (ob.parent) ob.parent.removeChild(ob);
       ob.parent = this;
+      this.fireBubbling("obAdded", ob);
     }
 
     this.children.splice(index, 1, ...obs);
+    this.fireBubbling("obRemoved", original);
+
     original.parent = undefined;
     return true;
   }
@@ -4551,7 +4610,7 @@ class Ob extends Serializable {
   
     for (let i = 0; i < data.children.length; i++) {
       let c2 = cloneData(data.children[i]);
-      this.appendChild(c2);
+      this.appendChildSilently(c2);
     }
 
 
@@ -4584,7 +4643,7 @@ class Ob extends Serializable {
   stripClientComponents() {
     for (let i = 0; i < this.components.length; i++) {
       if (this.components[i].clientOnly) {
-        this.removeComponent(this.components[i]);
+        this.removeComponent(this.components[i], false);
         i--;
       }
     }
@@ -4834,6 +4893,9 @@ class NDE {
     document.addEventListener("wheel", e => {
       this.inputManager.fire("input_wheel", e);
     });
+    audioContext.addEventListener("statechange", (e) => {
+      this.fire("audioContextStarted");        
+    });
 
     
     window.oncontextmenu = (e) => {
@@ -4940,7 +5002,7 @@ class NDE {
     });
   }
 
-  setScene(newScene) {
+  setScene(newScene, startNewScene = true) {
     if (this.e.events["beforeScene"]) {
       for (let ee of this.e.events["beforeScene"]) {
         let res = ee(newScene); 
@@ -4953,10 +5015,12 @@ class NDE {
     }
 
 
-    if (this.scene) this.scene.stop();
     this.scene = newScene;
-    this.scene.start();
-    this.scene.hasStarted = true;
+    if (startNewScene) {
+      if (this.scene) this.scene.stop();
+      this.scene.start();
+      this.scene.hasStarted = true;
+    }
 
     if (this.e.events["afterScene"]) {
       for (let ee of this.e.events["afterScene"]) {
@@ -4965,7 +5029,6 @@ class NDE {
       };
     }
   }
-
 
   on(...args) {return this.e.on(...args)}
   off(...args) {return this.e.off(...args)}
@@ -5086,11 +5149,21 @@ class NDE {
 
       let t2 = performance.now();
     
+      let lastHoveredUIElement = this.hoveredUIElement;
       this.hoveredUIElement = undefined;
       this.hoveredUIRoot = undefined;
       this.fire("render");
       if (this.transition) this.transition.render();
       this.fire("afterRender");
+
+      if (lastHoveredUIElement != this.hoveredUIElement) {
+        lastHoveredUIElement?.fire("mouseleave");
+        this.fire("mouseleave", lastHoveredUIElement);
+
+        if (this.hoveredUIElement?.fire("mouseenter") != false) {
+          this.fire("mouseenter", this.hoveredUIElement);
+        }
+      }
 
 
       this.pressedFrame.length = 0;
@@ -5154,7 +5227,7 @@ class NDE {
       this.scenePopup.captureScreen();
       this.scenePopup.ui.children[0].children[0] = ui;
       this.scenePopup.ui.initUI();
-      this.setScene(this.scenePopup);
+      this.setScene(this.scenePopup, false);
     });
   }
   resolvePopup(...args) {
@@ -5162,7 +5235,7 @@ class NDE {
     
     this.resolvePopupFunc(...args);
     this.resolvePopupFunc = undefined;
-    this.setScene(this.scenePopup.lastScene);
+    this.setScene(this.scenePopup.lastScene, false);
   }
 
   loadAsset(assetDescriptor) {
@@ -5177,7 +5250,7 @@ class NDE {
     
     let assetLoader = this.assetLoaders[fileType];
     if (!assetLoader) {
-      console.error("Unsupported filetype: " + assetDescriptor.path);
+      console.warn("Unsupported filetype: " + assetDescriptor.path);
       return;
     }
     assetDescriptor.path = assetFolder + "/" + assetDescriptor.path;
@@ -5207,11 +5280,6 @@ class NDE {
   tryStartAudio() {
     if (audioContext.state != "running") {
       audioContext.resume();
-    
-      
-      setTimeout(() => {
-        this.fire("audioContextStarted");        
-      }, 0);
     }
   }
 }

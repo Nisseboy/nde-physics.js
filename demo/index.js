@@ -30,7 +30,7 @@ nde.on("afterSetup", () => {
   }
 
 
-  scenes.game.loadWorld(new Ob());
+  scenes.game.loadWorld();
   nde.setScene(scenes.game);
 });
 

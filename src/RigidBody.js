@@ -71,6 +71,14 @@ class RigidBody extends Component {
     }
   }
 
+  applyForce(force) {
+    this.applyForceFast(force.x, force.y)
+  }
+  applyForceFast(x, y) {
+    this.force.x += x;
+    this.force.y += y;
+  }
+
   applyImpulse(impulse) {
     this.applyImpulseFast(impulse.x, impulse.y)
   }

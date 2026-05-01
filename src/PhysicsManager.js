@@ -70,7 +70,7 @@ class PhysicsManager extends Component {
       layer.removeCollider(c);
     }
   }
-  addObs(ob, removeOthers = false) {
+  addObs(ob) {
     let colliders = ob.getComponents(Collider);
     
     for (let i = 0; i < colliders.length; i++) {
@@ -79,6 +79,17 @@ class PhysicsManager extends Component {
       if (this.obs.includes(ob)) continue;
 
       this.addOb(ob);
+    }
+  }
+  removeObs(ob) {
+    let colliders = ob.getComponents(Collider);
+    
+    for (let i = 0; i < colliders.length; i++) {
+      let ob = colliders[i].ob;
+
+      if (!this.obs.includes(ob)) continue;
+
+      this.removeOb(ob);
     }
   }
 
@@ -106,19 +117,42 @@ class PhysicsManager extends Component {
   }
 
   clear() {
-    this.addObs(new Ob());
-    this.layers.length = 0;
+    for (let i = 0; i < this.obs.length; i++) {
+      if (this.obs[i]) this.removeOb(this.obs[i]);
+    }
   }
 
   addConstraint(constraint) {
     this.constraints.push(constraint);
   }
   removeConstraint(constraint) {
-    let index = this.constraints.findIndex(constraint);
+    let index = this.constraints.indexOf(constraint);
     if (index != -1) this.constraints.splice(index, 1);
   }
   clearConstraints() {
     this.constraints.length = 0;
+  }
+
+
+  start() {
+    this.addObs(this);
+
+    this.on("obAdded", ob => {
+      this.addObs(ob);
+    });
+    this.on("obRemoved", ob => {
+      this.removeObs(ob);
+    });
+    this.on("componentAdded", comp => {
+      if (!(comp instanceof Collider)) return;
+      
+      this.addOb(comp.ob);
+    });
+    this.on("componentRemoved", comp => {
+      if (!(comp instanceof Collider)) return;
+      
+      this.removeOb(comp.ob);
+    });
   }
 
   update(_dt) {
@@ -196,8 +230,9 @@ class PhysicsManager extends Component {
     let a = coll.a;
     let b = coll.b;
 
-    let aRB = a.getComponent(RigidBody);
-    let bRB = b.getComponent(RigidBody);
+    let aRB = this.rbs[this.obs.indexOf(a.ob)];
+    let bRB = this.rbs[this.obs.indexOf(b.ob)];
+    
 
 
     if (!aRB || !bRB || (aRB.static && bRB.static)) return;
@@ -265,7 +300,7 @@ class PhysicsManager extends Component {
     let jt = -velAlongTangent / invMassTangent;
 
     let friction = aRB.friction * bRB.friction;
-    if (velAlongTangent < this.staticFrictionThreshold) friction *= this.staticFrictionRatio;
+    if (Math.abs(velAlongTangent) < this.staticFrictionThreshold) friction *= this.staticFrictionRatio;
 
     // --- Coulomb's Law: clamp friction impulse ---
     let maxFriction = j * friction; // j is the normal impulse scalar

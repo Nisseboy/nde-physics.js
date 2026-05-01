@@ -2,7 +2,6 @@ class ColliderRect extends Collider {
   constructor(props = {}) {
     super();
 
-    this._size = undefined;
     this.size = props.size ?? vecOne.copy();
 
     this._cornercache = new Float32Array(8);

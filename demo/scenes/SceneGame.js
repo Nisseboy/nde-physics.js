@@ -9,8 +9,24 @@ class SceneGame extends Scene {
     this.cam = new Camera(new Vec(0, 0));
     this.cam.w = 16;
   }
-  loadWorld(w) {    
-    this.world = w;
+  loadWorld() {    
+    let g = new Grid({size: new Vec(16, 9)});
+    g.cam = this.cam;
+    g.g = [
+      1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+      1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+      1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+      1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+      1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+      1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+      1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+      1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+      1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+    ];
+    this.world = new Ob({}, [
+      g,
+      new ColliderGrid(),
+    ]);
 
     world = this.world;
     physics = new PhysicsManager();
@@ -32,7 +48,7 @@ class SceneGame extends Scene {
     );*/
     
 
-    
+    /*
     this.world.appendChild(
       new Ob({pos: new Vec(0, 0)}, [
         new RigidBody({vel: new Vec(1, 0)}),
@@ -43,6 +59,8 @@ class SceneGame extends Scene {
         new ColliderRect({size: new Vec(1, 1)}),
       ]),
     );
+    */
+    this.add();
 
 
     this.world.appendChild(
@@ -52,30 +70,22 @@ class SceneGame extends Scene {
       ]),
     );
 
-    physics.addObs(this.world);
-    
-    for (let i = 0; i < 100; i++) {
-      this.add();
-    }
-
     this.world.update(1/60);
 
   }
 
   add() {
-    let ob = new Ob({pos: new Vec(Math.random() * 16 - 8, Math.random() * 9 - 4.5), dir: Math.random() * Math.PI * 2}, [
-      new RigidBody({mass: 0.2^2, moi: 0.01}),
-      new ColliderRect({size: new Vec(0.2, 0.2)}),
-    ]);
-    this.world.appendChild(ob);
-    physics.addOb(ob);
-
     let ob2 = new Ob({pos: new Vec(Math.random() * 16 - 8, Math.random() * 9 - 4.5), dir: Math.random() * Math.PI * 2}, [
       new RigidBody({mass: 0.2^2, moi: 0.01}),
       new ColliderCircle({r: 0.1}),
     ]);
     this.world.appendChild(ob2);
-    physics.addOb(ob2);
+    
+    let ob = new Ob({pos: new Vec(Math.random() * 16 - 8, Math.random() * 9 - 4.5), dir: Math.random() * Math.PI * 2}, [
+      new RigidBody({mass: 0.2^2, moi: 0.01}),
+      new ColliderRect({size: new Vec(0.2, 0.2)}),
+    ]);
+    this.world.appendChild(ob);
   }
 
   start() {
@@ -91,6 +101,9 @@ class SceneGame extends Scene {
 
       rb.vel.from(diff.mul(10));
     }
+
+    if (world.children.length < 200)
+      this.add();
     
     //this.world.children[0].getComponent(RigidBody).force.x = 10;
     //this.world.children[1].getComponent(RigidBody).force.x = -10;
@@ -115,6 +128,7 @@ class SceneGame extends Scene {
 
 
     cam._(renderer, () => {
+      renderer.set("fill", "rgba(255, 255, 255, 1)")
       this.world.render();
       //physics.renderCollisionPoints();
     });

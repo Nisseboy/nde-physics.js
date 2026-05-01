@@ -143,7 +143,7 @@ function createCollision(a, b) {
   if (f) res = f(a, b, c);
   else {
     f = PhysicsManager.collisionPairs.get(b.type)?.get(a.type);
-    res = f(b, a, c);
+    if (f) res = f(b, a, c);
   }
   
   if (res) return res;
